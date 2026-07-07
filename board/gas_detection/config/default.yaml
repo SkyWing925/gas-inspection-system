@@ -1,0 +1,85 @@
+# Gas Detection Pipeline — default configuration
+# All tunable parameters in one place. Override via CLI: --xxx.yyy value
+
+pipeline:
+  mode: offline              # offline | realtime
+
+input:
+  camera_device: /dev/video0
+  camera_width: 640
+  camera_height: 480
+  fps: 25
+
+cv:
+  enabled: true
+  scale: 0.5                 # downscale factor (640→320)
+  mog2:
+    history: 200
+    var_threshold: 8
+    detect_shadows: false
+  frame_diff:
+    base_threshold: 8
+    std_multiplier: 1.5
+  optical_flow:
+    max_corners: 200
+    quality_level: 0.01
+    min_distance: 10
+    lk_winsize: [15, 15]
+    flow_grid_w: 64
+    flow_grid_h: 48
+  temporal_variance:
+    window: 32               # frames in ring buffer
+    ema_alpha: 0.05          # running stats update rate
+  fusion:
+    w_motion: 0.35
+    w_magnitude: 0.25
+    w_divergence: 0.20
+    w_temporal_var: 0.20
+  postprocess:
+    min_component_area: 200
+    max_area_ratio: 0.40
+    binary_percentile: 95
+    morph_open_size: 3
+    roi_merge_dist: 20
+    roi_persistence: 3
+
+dl:
+  enabled: true
+  model_path: gas_mobilenet_v3.pth
+  image_size: 224
+  frame_interval: 5
+  cascade:
+    skip_low: 0.15           # fused_max below → skip DL (nothing there)
+    t_var_confirm: 0.3       # retained for compatibility (unused in current gating)
+  motion:
+    mode: bg_subtract        # frame_diff | bg_subtract
+    diff_threshold: 15
+    min_motion_pixels: 500
+    morph_kernel: 3
+  roi:
+    min_area: 200
+    max_area_ratio: 0.5
+    persistence_frames: 2
+
+temporal:
+  heatmap_ema_alpha: 0.3
+  leak_prob_ema_alpha: 0.4
+  danger_count_threshold: 4
+  warning_count_threshold: 2
+  heatmap_intensity_threshold: 0.12
+
+output:
+  dir: output
+  save_video: true
+  save_images: true
+  save_report: true
+  overlay_alpha: 0.5
+  cloud:
+    enabled: false
+    device_id: gastest001
+    secret: GasTest2026
+    server: 7e58fc8115.st1.iotda-device.cn-north-4.myhuaweicloud.com
+    port: 8883
+
+logging:
+  level: INFO
