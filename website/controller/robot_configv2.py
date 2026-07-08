@@ -1,0 +1,3 @@
+ROBOT_HOST = "192.168.140.40"
+ROBOT_USER = "sunrise"
+ROBOT_PASS = "sunrise"

@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工业气体泄漏巡检系统 — AI 热成像 · 自动巡检 · 实时告警</title>
+    <meta name="description" content="基于 RDK X5 嵌入式计算平台的工业气体泄漏自动巡检系统，搭载热成像相机与深度学习模型，支持自动路径巡检、AI 实时检测、华为云 IoTDA 远程告警。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-deep: #0d1117;
+            --bg-card: #161b22;
+            --bg-elevated: #1c2129;
+            --border-subtle: rgba(255,255,255,0.06);
+            --border-card: rgba(255,255,255,0.08);
+            --text-primary: #f0f6fc;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-blue: #58a6ff;
+            --accent-blue-bg: rgba(88,166,255,0.12);
+            --accent-green: #7ee787;
+            --accent-green-bg: rgba(126,231,135,0.12);
+            --accent-orange: #ffa657;
+            --accent-orange-bg: rgba(255,166,87,0.12);
+            --accent-red: #ff7b72;
+            --accent-red-bg: rgba(255,123,114,0.12);
+            --accent-purple: #d2a8ff;
+            --accent-purple-bg: rgba(210,168,255,0.12);
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --radius-full: 100px;
+            --transition: 0.2s ease;
+        }
+
+        body {
+            background: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: "Inter", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* ===== Particle Canvas ===== */
+        #particle-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ===== Layout ===== */
+        .content-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+        }
+
+        section { position: relative; z-index: 1; }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        .section-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-blue);
+            margin-bottom: 16px;
+        }
+        .section-eyebrow .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+        }
+        .section-eyebrow.green { color: var(--accent-green); }
+        .section-eyebrow.green .dot { background: var(--accent-green); }
+        .section-eyebrow.orange { color: var(--accent-orange); }
+        .section-eyebrow.orange .dot { background: var(--accent-orange); }
+        .section-title {
+            font-size: clamp(28px, 4vw, 42px);
+            font-weight: 700;
+            line-height: 1.25;
+            letter-spacing: -0.02em;
+            margin-bottom: 16px;
+        }
+        .section-title .accent-word {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .section-desc {
+            font-size: 16px;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+            line-height: 1.7;
+        }
+
+        /* ===== Hero ===== */
+        .hero {
+            padding: 100px 0 60px;
+            text-align: center;
+        }
+        .hero-content { max-width: 800px; margin: 0 auto; }
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--accent-green);
+            background: var(--accent-green-bg);
+            padding: 6px 18px;
+            border-radius: var(--radius-full);
+            margin-bottom: 28px;
+        }
+        .hero-eyebrow .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.7); }
+        }
+        .hero-headline {
+            font-size: clamp(36px, 5.5vw, 56px);
+            font-weight: 800;
+            line-height: 1.15;
+            letter-spacing: -0.03em;
+            margin-bottom: 24px;
+        }
+        .hero-desc {
+            font-size: 18px;
+            color: var(--text-secondary);
+            max-width: 560px;
+            margin: 0 auto 36px;
+            line-height: 1.7;
+        }
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 40px;
+        }
+        .btn-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+            background: #238636;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .btn-primary:hover {
+            background: #2ea043;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(35,134,54,0.3);
+        }
+        .btn-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+            background: transparent;
+            border: 1.5px solid rgba(255,255,255,0.15);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .btn-secondary:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+        }
+        .hero-trust {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .trust-avatars {
+            display: flex;
+        }
+        .trust-avatar {
+            width: 36px; height: 36px;
+            border-radius: 50%;
+            border: 2px solid var(--bg-deep);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            margin-right: -10px;
+        }
+        .trust-avatar:nth-child(1) { background: #e8f0fe; color: #1a73e8; z-index: 4; }
+        .trust-avatar:nth-child(2) { background: #e6f4ea; color: #1e8e3e; z-index: 3; }
+        .trust-avatar:nth-child(3) { background: #f3e5f5; color: #7b1fa2; z-index: 2; }
+        .trust-avatar:nth-child(4) { background: #fce8d8; color: #fa7b17; z-index: 1; }
+        .trust-text {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+        .trust-text strong { color: var(--text-primary); }
+
+        /* ===== Stats Band ===== */
+        .stats-band {
+            display: flex;
+            gap: 0;
+            margin: 0 auto 80px;
+            max-width: 1000px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .stat-item {
+            flex: 1;
+            text-align: center;
+            padding: 28px 16px;
+            border-right: 1px solid var(--border-subtle);
+            transition: background var(--transition);
+        }
+        .stat-item:last-child { border-right: none; }
+        .stat-item:hover { background: var(--bg-elevated); }
+        .stat-num {
+            font-size: 36px;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1;
+            margin-bottom: 6px;
+        }
+        .stat-num .stat-suffix {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .stat-item:nth-child(1) .stat-num { color: var(--accent-blue); }
+        .stat-item:nth-child(2) .stat-num { color: var(--accent-green); }
+        .stat-item:nth-child(3) .stat-num { color: var(--accent-purple); }
+        .stat-item:nth-child(4) .stat-num { color: var(--accent-orange); }
+        .stat-item:nth-child(5) .stat-num { color: var(--accent-red); }
+
+        /* ===== Section Divider ===== */
+        .section-divider {
+            max-width: 1100px;
+            margin: 0 auto 0;
+            padding: 0 24px;
+            position: relative;
+            z-index: 1;
+        }
+        .section-divider-inner {
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        /* ===== Features Grid ===== */
+        .features-section { padding: 60px 0 80px; }
+        .features-layout {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .feat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 28px;
+            transition: all var(--transition);
+            display: flex;
+            flex-direction: column;
+            min-height: 260px;
+        }
+        .feat-card:hover {
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-2px);
+        }
+        .feat-icon {
+            width: 44px; height: 44px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin-bottom: 16px;
+            flex-shrink: 0;
+        }
+        .feat-card h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            letter-spacing: -0.01em;
+        }
+        .feat-card p {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.65;
+            flex: 1;
+        }
+        .feat-card-footer {
+            margin-top: 20px;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .feat-tag {
+            font-size: 12px;
+            font-weight: 500;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            background: rgba(88,166,255,0.1);
+            color: var(--accent-blue);
+        }
+        .feat-tag.green { background: var(--accent-green-bg); color: var(--accent-green); }
+        .feat-tag.orange { background: var(--accent-orange-bg); color: var(--accent-orange); }
+        .feat-tag.purple { background: var(--accent-purple-bg); color: var(--accent-purple); }
+
+        /* ===== How It Works ===== */
+        .how-section { padding: 0 0 80px; }
+        .steps-layout {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .step-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 28px;
+            text-align: center;
+            transition: all var(--transition);
+        }
+        .step-item:hover {
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-2px);
+        }
+        .step-num {
+            width: 48px; height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            color: #fff;
+            font-size: 20px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+        }
+        .step-item h4 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .step-item p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* ===== Detection Pipeline ===== */
+        .pipeline-section { padding: 0 0 80px; }
+        .pipeline-wrap {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .pipeline-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .pipe-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+        }
+        .pipe-dot.red { background: #ff5f56; }
+        .pipe-dot.yellow { background: #ffbd2e; }
+        .pipe-dot.green { background: #27c93f; }
+        .pipeline-filename {
+            margin-left: 12px;
+            font-size: 13px;
+            color: var(--text-muted);
+            font-family: "SF Mono", "Fira Code", monospace;
+        }
+        .pipeline-body {
+            padding: 24px 28px;
+        }
+        .pipeline-flow {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .pipe-step {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-sm);
+            padding: 14px 20px;
+            text-align: center;
+            min-width: 140px;
+            transition: all var(--transition);
+        }
+        .pipe-step:hover { border-color: var(--accent-blue); }
+        .pipe-step .step-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-blue);
+            margin-bottom: 4px;
+        }
+        .pipe-step .step-name {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .pipe-arrow {
+            font-size: 20px;
+            color: var(--text-muted);
+            margin: 0 4px;
+            flex-shrink: 0;
+        }
+        .pipe-result {
+            display: flex;
+            gap: 8px;
+            margin-top: 28px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .result-badge {
+            padding: 8px 20px;
+            border-radius: var(--radius-full);
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .result-badge.normal { background: var(--accent-green-bg); color: var(--accent-green); border: 1px solid rgba(126,231,135,0.25); }
+        .result-badge.warning { background: var(--accent-orange-bg); color: var(--accent-orange); border: 1px solid rgba(255,166,87,0.25); }
+        .result-badge.danger { background: var(--accent-red-bg); color: var(--accent-red); border: 1px solid rgba(255,123,114,0.25); }
+
+        .demo-section { padding: 0 0 80px; }
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+        .demo-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: all var(--transition);
+        }
+        .demo-card:hover {
+            border-color: rgba(255,255,255,0.12);
+            transform: translateY(-2px);
+        }
+        .demo-card video {
+            width: 100%;
+            display: block;
+            background: #000;
+        }
+        .demo-card .demo-info {
+            padding: 18px 20px;
+        }
+        .demo-card .demo-info h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .demo-card .demo-info p {
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        .demo-card .demo-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: var(--radius-full);
+            margin-bottom: 10px;
+        }
+        .demo-tag.raw { background: var(--accent-blue-bg); color: var(--accent-blue); }
+        .demo-tag.heatmap { background: var(--accent-orange-bg); color: var(--accent-orange); }
+        .demo-tag.overlay { background: var(--accent-green-bg); color: var(--accent-green); }
+        @media (max-width: 900px) {
+            .demo-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ===== Tech Stack ===== */
+        .tech-section { padding: 0 0 80px; }
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .tech-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            text-align: center;
+            transition: all var(--transition);
+        }
+        .tech-card:hover {
+            border-color: rgba(255,255,255,0.12);
+        }
+        .tech-card .tech-icon {
+            font-size: 32px;
+            margin-bottom: 12px;
+        }
+        .tech-card h4 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .tech-card p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* ===== FAQ ===== */
+        .faq-section { padding: 0 0 80px; }
+        .faq-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .faq-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            transition: all var(--transition);
+        }
+        .faq-item:hover { border-color: rgba(255,255,255,0.12); }
+        .faq-item summary {
+            padding: 18px 24px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+        .faq-item summary::-webkit-details-marker { display: none; }
+        .faq-item summary::after {
+            content: "+";
+            font-size: 18px;
+            color: var(--text-muted);
+            transition: transform var(--transition);
+            font-weight: 400;
+        }
+        .faq-item[open] summary::after {
+            content: "−";
+            color: var(--accent-blue);
+        }
+        .faq-answer {
+            padding: 0 24px 20px;
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+        .faq-answer code {
+            background: var(--bg-elevated);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            color: var(--accent-blue);
+        }
+
+        /* ===== Login Modal ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-dialog {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            width: 400px;
+            max-width: 90vw;
+            transform: translateY(20px);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.active .modal-dialog {
+            transform: translateY(0);
+        }
+        .modal-dialog h2 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            text-align: center;
+        }
+        .modal-dialog .modal-sub {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 28px;
+            text-align: center;
+        }
+        .modal-dialog .form-group {
+            margin-bottom: 18px;
+        }
+        .modal-dialog label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .modal-dialog input {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 15px;
+            font-family: inherit;
+            color: var(--text-primary);
+            background: var(--bg-deep);
+            border: 1.5px solid rgba(255,255,255,0.1);
+            border-radius: var(--radius-sm);
+            outline: none;
+            transition: border-color var(--transition);
+        }
+        .modal-dialog input:focus {
+            border-color: var(--accent-blue);
+        }
+        .modal-dialog .btn-login {
+            width: 100%;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            background: #238636;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all var(--transition);
+            margin-top: 8px;
+        }
+        .modal-dialog .btn-login:hover {
+            background: #2ea043;
+        }
+        .modal-dialog .login-error {
+            font-size: 13px;
+            color: var(--accent-red);
+            text-align: center;
+            margin-top: 12px;
+            display: none;
+        }
+        .modal-close {
+            position: absolute;
+            top: 16px; right: 20px;
+            font-size: 22px;
+            color: var(--text-muted);
+            cursor: pointer;
+            background: none;
+            border: none;
+            transition: color var(--transition);
+        }
+        .modal-close:hover { color: var(--text-primary); }
+        .cta-band {
+            margin: 0 0 80px;
+        }
+        .cta-inner {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, #1a3a2a 0%, #0d2137 50%, #1a1a3e 100%);
+            border: 1px solid rgba(126,231,135,0.15);
+            border-radius: var(--radius-lg);
+            padding: 56px 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 32px;
+            flex-wrap: wrap;
+        }
+        .cta-left h2 {
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: 8px;
+        }
+        .cta-left p {
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+        .cta-btns {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .cta-btn-white {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 36px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #0d1117;
+            background: #fff;
+            border: none;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .cta-btn-white:hover {
+            background: #e6e6e6;
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+        .cta-btn-ghost {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 16px 36px;
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            background: transparent;
+            border: 1.5px solid rgba(255,255,255,0.25);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all var(--transition);
+        }
+        .cta-btn-ghost:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* ===== Footer ===== */
+        .site-footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border-subtle);
+            text-align: center;
+        }
+        .site-footer p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .site-footer a {
+            color: var(--accent-blue);
+            text-decoration: none;
+        }
+        .site-footer a:hover { text-decoration: underline; }
+
+        /* ===== Responsive ===== */
+        @media (max-width: 900px) {
+            .features-layout { grid-template-columns: repeat(2, 1fr); }
+            .steps-layout { grid-template-columns: repeat(2, 1fr); }
+            .tech-grid { grid-template-columns: repeat(2, 1fr); }
+            .faq-grid { grid-template-columns: 1fr; }
+            .stats-band { flex-wrap: wrap; }
+            .stat-item { flex: 0 0 33.333%; border-bottom: 1px solid var(--border-subtle); }
+            .pipeline-flow { flex-direction: column; }
+            .pipe-arrow { transform: rotate(90deg); margin: 4px 0; }
+        }
+
+        @media (max-width: 600px) {
+            .hero { padding: 60px 0 40px; }
+            .hero-headline { font-size: 28px; }
+            .steps-layout { grid-template-columns: 1fr; }
+            .tech-grid { grid-template-columns: 1fr; }
+            .stat-item { flex: 0 0 50%; }
+            .cta-inner { padding: 36px 24px; text-align: center; }
+            .cta-btns { width: 100%; justify-content: center; }
+            .pipe-step { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="particle-canvas"></canvas>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+    <div class="content-wrapper">
+        <div class="hero-content">
+            <div class="hero-eyebrow">
+                <span class="dot"></span>
+                RDK X5 嵌入式计算平台 · 7×24 自动巡检
+            </div>
+            <h1 class="hero-headline">
+                工业气体泄漏<br><span class="accent-word">AI 智能巡检系统</span>
+            </h1>
+            <p class="hero-desc">
+                搭载热成像相机、MobileNetV2 轻量模型与视觉大模型（VLM），实现工业场景下气体泄漏的三级级联检测。
+                CV 初筛 → DL 分类 → VLM 语义确认，彻底消除误报。支持自定义巡检路径、定点拍摄、结果一键上传华为云 IoTDA。
+            </p>
+            <div class="hero-actions">
+                <a href="#" class="btn-primary" id="btn-login-hero" onclick="showLogin();return false;">
+                    <i class="fas fa-lock"></i> 登录控制台
+                </a>
+                <a href="#features" class="btn-secondary">
+                    <i class="fas fa-arrow-down"></i> 了解更多
+                </a>
+            </div>
+            <div class="hero-trust">
+                <div class="trust-avatars">
+                    <div class="trust-avatar" title="AI 视觉"><i class="fas fa-eye"></i></div>
+                    <div class="trust-avatar" title="热成像"><i class="fas fa-temperature-high"></i></div>
+                    <div class="trust-avatar" title="机器人"><i class="fas fa-robot"></i></div>
+                    <div class="trust-avatar" title="云端"><i class="fas fa-cloud"></i></div>
+                </div>
+                <span class="trust-text"><strong>CV + DL 双模型</strong> 级联检测 · 毫秒级响应</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== STATS ===== -->
+<div class="content-wrapper">
+    <div class="stats-band" id="stats">
+        <div class="stat-item">
+            <div class="stat-num">多场景</div>
+            <div class="stat-label">巡检点位覆盖</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">98.7<span class="stat-suffix">%</span></div>
+            <div class="stat-label">正常识别准确率</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">0.1<span class="stat-suffix">s</span></div>
+            <div class="stat-label">单帧推理时间</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">VLM</div>
+            <div class="stat-label">视觉大模型确认</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-num">24<span class="stat-suffix">/7</span></div>
+            <div class="stat-label">全天候自动运行</div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Section Divider ===== -->
+<div class="section-divider">
+    <div class="section-divider-inner"></div>
+</div>
+
+<!-- ===== DETECTION DEMO VIDEOS ===== -->
+<section class="demo-section" id="demo">
+    <div class="content-wrapper">
+        <div class="section-header">
+            <span class="section-eyebrow green"><span class="dot"></span> 检测演示</span>
+            <h2 class="section-title">三阶段 <span class="accent-word">可视化输出</span></h2>
+            <p class="section-desc">从原始热成像录制到 AI 检测结果，完整展示气体泄漏检测全过程。</p>
+        </div>
+
+        <div class="demo-grid">
+            <div class="demo-card">
+                <video controls muted loop preload="none" poster="">
+                    <source src="record.mp4" type="video/mp4">
+                </video>
+                <div class="demo-info">
+                    <span class="demo-tag raw">原始录制</span>
+                    <h4>📷 热成像原始画面</h4>
+                    <p>热成像相机 (640×480@25fps) 在巡检点录制的原始灰度视频，保留了完整的温度信息，供 CV 四通道融合管线逐帧分析。</p>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <video controls muted loop preload="none" poster="">
+                    <source src="gas_detection_heatmap.mp4" type="video/mp4">
+                </video>
+                <div class="demo-info">
+                    <span class="demo-tag heatmap">热力图</span>
+                    <h4>🔥 运动检测热力图</h4>
+                    <p>CV 四通道融合（MOG2 + 自适应帧差 + LK 光流 + Welford 时域方差）生成的加权热力图，高亮区域为疑似气体泄漏的运动异常区。</p>
+                </div>
+            </div>
+
+            <div class="demo-card">
+                <video controls muted loop preload="none" poster="">
+                    <source src="gas_detection_overlay.mp4" type="video/mp4">
+                </video>
+                <div class="demo-info">
+                    <span class="demo-tag overlay">检测标注</span>
+                    <h4>🎯 ROI 检测叠加标注</h4>
+                    <p>DL MobileNetV2 分类结果叠加到原始画面：红色框 = 可疑 ROI 区域，蓝色框 = 合并检测区，文字标注分类结果与置信度。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FEATURES ===== -->
+<section class="features-section" id="features">
+    <div class="content-wrapper">
+        <div class="section-header">
+            <span class="section-eyebrow"><span class="dot"></span> 核心能力</span>
+            <h2 class="section-title">不只是检测<br>而是工业安全的<span class="accent-word">智能防线</span></h2>
+            <p class="section-desc">从自动巡检到 AI 识别，从本地分析到云端告警，覆盖工业气体泄漏检测的完整链路。</p>
+        </div>
+
+        <div class="features-layout">
+            <div class="feat-card">
+                <div class="feat-icon" style="background:var(--accent-blue-bg);color:var(--accent-blue);">
+                    <i class="fas fa-image"></i>
+                </div>
+                <h3>背景建模运动检测</h3>
+                <p>中值背景建模 + 迭代离群点剔除，精准提取热成像画面中的运动变化区域。自适应阈值，不受环境温度波动干扰。</p>
+                <div class="feat-card-footer">
+                    <span class="feat-tag">中值背景</span>
+                    <span class="feat-tag">自适应阈值</span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon" style="background:var(--accent-green-bg);color:var(--accent-green);">
+                    <i class="fas fa-vector-square"></i>
+                </div>
+                <h3>ROI 气体区域过滤</h3>
+                <p>形态学处理 + 连通分量分析，过滤噪点保留有效气体区域。面积阈值 + 时序持久性双重筛选，排除瞬时干扰。</p>
+                <div class="feat-card-footer">
+                    <span class="feat-tag green">连通分量</span>
+                    <span class="feat-tag green">时序持久</span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon" style="background:var(--accent-purple-bg);color:var(--accent-purple);">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <h3>MobileNetV2 轻量分类</h3>
+                <p>轻量级深度学习模型 (9MB)，专为端侧 ARM 芯片优化。对 ROI 区域进行气体/正常二分类，单帧推理 < 0.1 秒，适合嵌入式实时检测。</p>
+                <div class="feat-card-footer">
+                    <span class="feat-tag purple">端侧推理</span>
+                    <span class="feat-tag purple">9MB 模型</span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon" style="background:var(--accent-orange-bg);color:var(--accent-orange);">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <h3>VLM 视觉大模型二次确认</h3>
+                <p>接入 Qwen-VL 视觉大模型，对检测帧进行语义级理解。精准区分人、设备、气体泄漏等物体，从根本上消除人体误报，大幅提升检测可信度。</p>
+                <div class="feat-card-footer">
+                    <span class="feat-tag orange">Qwen-VL</span>
+                    <span class="feat-tag orange">语义理解</span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon" style="background:var(--accent-green-bg);color:var(--accent-green);">
+                    <i class="fas fa-route"></i>
+                </div>
+                <h3>自定义巡检路径</h3>
+                <p>支持预设路径与 DSL 自定义路径。小车按规划路线自动行驶，定点停车拍摄，覆盖所有关键检测区域，7×24 无人值守运行。</p>
+                <div class="feat-card-footer">
+                    <span class="feat-tag green">路径 DSL</span>
+                    <span class="feat-tag green">7×24</span>
+                </div>
+            </div>
+            <div class="feat-card">
+                <div class="feat-icon" style="background:var(--accent-red-bg);color:var(--accent-red);">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <h3>华为云 IoTDA 实时告警</h3>
+                <p>检测结果 + VLM 确认结论自动上传华为云 IoTDA。MQTT over TLS 加密传输，支持文字告警、图片证据与语音播报，远程掌控现场状态。</p>
+                <div class="feat-card-footer">
+                    <span class="feat-tag" style="background:var(--accent-red-bg);color:var(--accent-red);">MQTT/TLS</span>
+                    <span class="feat-tag" style="background:var(--accent-orange-bg);color:var(--accent-orange);">语音播报</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== HOW IT WORKS ===== -->
+<section class="how-section" id="how">
+    <div class="content-wrapper">
+        <div class="section-header">
+            <span class="section-eyebrow green"><span class="dot"></span> 工作流程</span>
+            <h2 class="section-title">四步完成自动巡检</h2>
+            <p class="section-desc">从路径规划到结果输出，全程自动化，无需人工干预。</p>
+        </div>
+
+        <div class="steps-layout">
+            <div class="step-item">
+                <div class="step-num">1</div>
+                <h4>路径规划</h4>
+                <p>通过 DSL 或预设模板配置巡检路径，定义小车行驶轨迹与拍摄点位。</p>
+            </div>
+            <div class="step-item">
+                <div class="step-num">2</div>
+                <h4>自动巡检</h4>
+                <p>小车按路径自动行驶，定点停车。热成像相机录制视频，保存为 .npz + .avi 格式。</p>
+            </div>
+            <div class="step-item">
+                <div class="step-num">3</div>
+                <h4>AI 检测</h4>
+                <p>背景建模提取运动区域，MobileNetV2 初筛分类，Qwen-VL 视觉大模型二次确认。输出 normal / warning / danger 三级结果。</p>
+            </div>
+            <div class="step-item">
+                <div class="step-num">4</div>
+                <h4>云端告警</h4>
+                <p>检测结果 + 标注图片自动上传华为云 IoTDA。MQTT 实时推送告警，支持文字、图片与语音播报，远程监控即时响应。</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== DETECTION PIPELINE ===== -->
+<section class="pipeline-section" id="pipeline">
+    <div class="content-wrapper">
+        <div class="section-header">
+            <span class="section-eyebrow orange"><span class="dot"></span> 检测管线</span>
+            <h2 class="section-title">CV + DL + VLM <span class="accent-word">三级级联</span></h2>
+            <p class="section-desc">背景建模快速初筛 → MobileNetV2 轻量分类 → 视觉大模型语义确认，层层递进，精准可靠。</p>
+        </div>
+
+        <div class="pipeline-wrap">
+            <div class="pipeline-header">
+                <span class="pipe-dot red"></span>
+                <span class="pipe-dot yellow"></span>
+                <span class="pipe-dot green"></span>
+                <span class="pipeline-filename">detection_pipeline.py</span>
+            </div>
+            <div class="pipeline-body">
+                <div class="pipeline-flow">
+                    <div class="pipe-step">
+                        <div class="step-label">Step 1</div>
+                        <div class="step-name">📷 热成像帧</div>
+                    </div>
+                    <span class="pipe-arrow">→</span>
+                    <div class="pipe-step">
+                        <div class="step-label">Step 2</div>
+                        <div class="step-name">🔍 背景建模</div>
+                    </div>
+                    <span class="pipe-arrow">→</span>
+                    <div class="pipe-step">
+                        <div class="step-label">Step 3</div>
+                        <div class="step-name">🧠 MobileNetV2</div>
+                    </div>
+                    <span class="pipe-arrow">→</span>
+                    <div class="pipe-step">
+                        <div class="step-label">Step 4</div>
+                        <div class="step-name">🤖 VLM 确认</div>
+                    </div>
+                    <span class="pipe-arrow">→</span>
+                    <div class="pipe-step">
+                        <div class="step-label">Output</div>
+                        <div class="step-name">📊 检测报告</div>
+                    </div>
+                </div>
+                <div class="pipe-result">
+                    <span class="result-badge normal">Normal 正常</span>
+                    <span class="result-badge warning">Warning 疑似</span>
+                    <span class="result-badge danger">Danger 泄漏</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== TECH STACK ===== -->
+<section class="tech-section" id="tech">
+    <div class="content-wrapper">
+        <div class="section-header">
+            <span class="section-eyebrow"><span class="dot"></span> 技术栈</span>
+            <h2 class="section-title">端侧推理 · <span class="accent-word">全栈方案</span></h2>
+        </div>
+        <div class="tech-grid">
+            <div class="tech-card">
+                <div class="tech-icon">🖥️</div>
+                <h4>RDK X5 开发板</h4>
+                <p>ARM Cortex-A55 · 8 TOPS BPU · 端侧 AI 推理</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">🚗</div>
+                <h4>Wheeltec 阿克曼小车</h4>
+                <p>ROS 2 Humble · 里程计闭环 · 串口协议控制</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">📡</div>
+                <h4>热成像相机</h4>
+                <p>640×480@25fps · YUYV 格式 · MS210x 采集</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">🧠</div>
+                <h4>PyTorch + OpenCV</h4>
+                <p>MobileNetV2 分类 · MOG2/光流/帧差/方差融合</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">☁️</div>
+                <h4>华为云 IoTDA</h4>
+                <p>MQTT · TLS 1.2 · 设备影子 · 消息追踪</p>
+            </div>
+            <div class="tech-card">
+                <div class="tech-icon">🌐</div>
+                <h4>Web 控制台</h4>
+                <p>实时预览 · 结果展示 · 远程控制 · 历史回溯</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FAQ ===== -->
+<section class="faq-section" id="faq">
+    <div class="content-wrapper">
+        <div class="section-header">
+            <span class="section-eyebrow"><span class="dot"></span> 常见问题</span>
+            <h2 class="section-title">关于系统你可能想知道的</h2>
+        </div>
+
+        <div class="faq-grid">
+            <div class="faq-col">
+                <details class="faq-item">
+                    <summary>系统支持哪些气体类型检测？</summary>
+                    <div class="faq-answer">
+                        系统通过热成像原理检测气体泄漏导致的温度异常，适用于<strong>工业压缩气体、制冷剂、蒸汽</strong>等具有温差特征的气体泄漏检测。AI 模型通过热成像灰度图识别气体扩散的形态特征，不依赖特定气体化学传感器。
+                    </div>
+                </details>
+                <details class="faq-item">
+                    <summary>检测结果 normal / warning / danger 分别代表什么？</summary>
+                    <div class="faq-answer">
+                        <strong>Normal（正常）</strong>：≥80% 的采样帧未检测到运动变化，现场安全。<br>
+                        <strong>Warning（疑似）</strong>：存在运动变化但泄漏证据不足，建议人工复核。<br>
+                        <strong>Danger（泄漏）</strong>：≥30% 的帧被 DL 模型判定为泄漏，需要立即处理。
+                    </div>
+                </details>
+                <details class="faq-item">
+                    <summary>人体经过会不会触发误报？</summary>
+                    <div class="faq-answer">
+                        不会。系统内置了 <code>HumanGasDiscriminator</code>（11 维特征判别器），通过边缘密度、紧实度、长宽比等特征区分人体与气体。人体经过会被标记为 warning（特殊情况），而非 danger（泄漏）。
+                    </div>
+                </details>
+            </div>
+            <div class="faq-col">
+                <details class="faq-item">
+                    <summary>如何自定义巡检路径？</summary>
+                    <div class="faq-answer">
+                        使用路径 DSL 语法：<code>f:距离</code>（前进）、<code>t:角度</code>（转弯）、<code>s</code>（停车拍摄）。<br>
+                        例如：<code>"f:0.5, s, t:90, s, f:0.3, s"</code> 表示前进 0.5m → 拍摄 → 右转 90° → 拍摄 → 前进 0.3m → 拍摄。
+                    </div>
+                </details>
+                <details class="faq-item">
+                    <summary>系统可以在哪些平台上运行？</summary>
+                    <div class="faq-answer">
+                        核心系统运行在 <strong>RDK X5</strong>（ARM Cortex-A55, Ubuntu 22.04, ROS 2 Humble）。Web 控制台可在任何现代浏览器中打开，支持桌面端与移动端访问。
+                    </div>
+                </details>
+                <details class="faq-item">
+                    <summary>数据如何上传到云端？</summary>
+                    <div class="faq-answer">
+                        通过 <code>iotda_test.py</code> 使用 MQTT over TLS 1.2 协议连接华为云 IoTDA。上传内容包括：文字告警、图片证据（base64 编码）和语音播报。
+                    </div>
+                </details>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== LOGIN MODAL ===== -->
+<div class="modal-overlay" id="login-modal">
+    <div class="modal-dialog" style="position:relative;">
+        <button class="modal-close" onclick="hideLogin()">&times;</button>
+        <h2>🔐 登录控制台</h2>
+        <p class="modal-sub">工业气体泄漏 AI 智能巡检系统</p>
+        <div class="form-group">
+            <label>用户名</label>
+            <input type="text" id="login-username" placeholder="请输入用户名" autocomplete="username">
+        </div>
+        <div class="form-group">
+            <label>密码</label>
+            <input type="password" id="login-password" placeholder="请输入密码" autocomplete="current-password">
+        </div>
+        <button class="btn-login" onclick="doLogin()">登 录</button>
+        <p class="login-error" id="login-error">用户名或密码错误</p>
+    </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="site-footer">
+    <div class="content-wrapper">
+        <p>工业气体泄漏 AI 智能巡检系统 · 基于 RDK X5 + Wheeltec 阿克曼小车 · ROS 2 Humble</p>
+        <p style="margin-top:4px;">
+            <a href="https://github.com/SkyWing925/gas-inspection-system" target="_blank" rel="noopener">GitHub</a>
+        </p>
+    </div>
+</footer>
+
+<script>
+/* ===== CANVAS PARTICLE ENGINE — 3D 波浪网格 ===== */
+document.addEventListener('DOMContentLoaded', function() {
+    var canvas = document.getElementById('particle-canvas');
+    var ctx = canvas.getContext('2d');
+    var width, height, gridParticles = [], strayParticles = [], time = 0;
+    var cols = 80, rows = 60, spacing = 35;
+
+    function initCanvas() {
+        width = window.innerWidth;
+        height = window.innerHeight * 1.2;
+        canvas.width = width;
+        canvas.height = height;
+        createParticles();
+    }
+
+    function createParticles() {
+        gridParticles = [];
+        strayParticles = [];
+        var offsetX = width * 0.3, offsetY = height * 0.6;
+        for (var i = 0; i < cols; i++) {
+            for (var j = 0; j < rows; j++) {
+                var gx = (i - cols / 2) * spacing;
+                var gz = (j - rows / 2) * spacing;
+                gridParticles.push({
+                    gridX: gx, gridZ: gz,
+                    baseX: gx + offsetX, baseY: offsetY, z: gz,
+                    randomOffset: Math.random() * Math.PI * 2
+                });
+            }
+        }
+        for (var k = 0; k < 150; k++) {
+            strayParticles.push({
+                x: Math.random() * width, y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5,
+                size: Math.random() * 1.5 + 0.5
+            });
+        }
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        time += 0.01;
+
+        // Grid wave particles with 3D perspective
+        gridParticles.forEach(function(p) {
+            var distFromCenter = Math.sqrt(p.gridX * p.gridX * 0.5 + p.gridZ * p.gridZ * 0.2);
+            var peakHeight = 400 * Math.exp(-(distFromCenter * distFromCenter) / 40000);
+            var wave = Math.sin(p.gridX * 0.01 + time) * 30 + Math.cos(p.gridZ * 0.015 - time) * 30;
+            p.y = p.baseY - peakHeight + wave;
+            var perspective = 1200, renderZ = p.z + 800;
+            var scale = perspective / (perspective + renderZ);
+            var screenX = (width * 0.7) + p.gridX * scale;
+            var screenY = p.y * scale;
+            var opacity = Math.min(1, Math.max(0, 1 - (renderZ - 400) / 1000));
+            if (screenX > 0 && screenX < width && screenY > 0 && screenY < height && opacity > 0.05) {
+                ctx.beginPath();
+                ctx.arc(screenX, screenY, 1.2 * scale, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(26, 115, 232, ' + (opacity * 0.8) + ')';
+                ctx.fill();
+            }
+        });
+
+        // Stray floating particles
+        strayParticles.forEach(function(sp) {
+            sp.x += sp.vx; sp.y += sp.vy;
+            if (sp.x < 0 || sp.x > width) sp.vx *= -1;
+            if (sp.y < 0 || sp.y > height) sp.vy *= -1;
+            ctx.beginPath();
+            ctx.arc(sp.x, sp.y, sp.size, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(26, 115, 232, 0.4)';
+            ctx.fill();
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('resize', initCanvas);
+    initCanvas();
+    animate();
+});
+
+// ===== Login Modal =====
+var CONSOLE_URL = 'http://t30.sjcmc.cn:14052/';
+var VALID_USERS = {
+    'admin': 'admin123',
+    'sunrise': 'sunrise'
+};
+
+function showLogin() {
+    document.getElementById('login-modal').classList.add('active');
+    document.getElementById('login-error').style.display = 'none';
+    document.getElementById('login-username').value = '';
+    document.getElementById('login-password').value = '';
+    setTimeout(function() {
+        document.getElementById('login-username').focus();
+    }, 300);
+}
+
+function hideLogin() {
+    document.getElementById('login-modal').classList.remove('active');
+}
+
+function doLogin() {
+    var username = document.getElementById('login-username').value.trim();
+    var password = document.getElementById('login-password').value;
+    if (VALID_USERS[username] === password) {
+        window.location.href = CONSOLE_URL;
+        hideLogin();
+    } else {
+        document.getElementById('login-error').style.display = 'block';
+        document.getElementById('login-password').value = '';
+        document.getElementById('login-password').focus();
+    }
+}
+
+// Enter key submits login
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.getElementById('login-modal').classList.contains('active')) {
+        doLogin();
+    }
+    if (e.key === 'Escape') {
+        hideLogin();
+    }
+});
+
+// Click overlay background to close
+document.getElementById('login-modal').addEventListener('click', function(e) {
+    if (e.target === this) hideLogin();
+});
+
+// ===== Smooth scroll for anchor links =====
+document.querySelectorAll('a[href^="#"]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+});
+</script>
+
+</body>
+</html>
