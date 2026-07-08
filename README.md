@@ -185,4 +185,4 @@ python gas_dashboard.py
 
 ## License
 
-[待定]
+[MIT](LICENSE) © 2026 SkyWing925
