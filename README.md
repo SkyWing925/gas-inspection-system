@@ -65,18 +65,42 @@
 
 ### 板子部署（RDK X5，Ubuntu 20.04）
 
-```bash
+```
 ~/mobilenet_test/
-├── main.py              # 一键巡检
-├── main_0.py            # 离线检测（npz/视频/图片）
-├── preview.py           # 相机预览+录制（:8080）
-├── report.py            # 判定与上报
-├── gas_dashboard_v3.py  # Flask 仪表盘（:5001）
-├── gas_mobilenet_v3.pth # 模型（9 MB）
-├── robot_tunnel.sh      # SSH 反向隧道（autossh 自动重连）
-└── gas_pipeline/        # 检测库
+├── main.py                    # 一键巡检入口
+├── run.py                     # 启动脚本
+├── preview.py                 # 相机预览+录制 Web 服务
+├── preset_path_controller.py  # DSL 路径解析
+├── vlm_check.py               # VLM 语义确认
+├── iotda_test.py              # 数据上报
+├── gas_detection/             # 检测管线库
+│   ├── config/                # 配置（阈值、参数）
+│   ├── core/                  # 调度（帧源、管道、结果）
+│   ├── cv_pipeline/           # CV 四通道
+│   ├── dl_pipeline/           # DL 分类
+│   ├── outputs/               # 上报/可视化/视频写入
+│   └── utils/                 # 图像 I/O 工具
+└── model/
+    └── gas_mobilenet_v3.pth   # MobileNetV2（9 MB）
 ```
 
+启动相机服务：
+
+```bash
+OPENCV_LOG_LEVEL=SILENT OPENCV_IO_MAX_RETRIES=0 python3 preview.py
+```
+
+### PC 端部署
+
+```
+dashboard/
+├── gas_dashboard.py           # Flask 仪表盘
+└── robot_config.example.py    # SSH 凭据模板
+```
+
+```bash
+python gas_dashboard.py
+```
 
 ### 服务器（Windows Server，t30.sjcmc.cn）
 
@@ -108,7 +132,7 @@ f:0.5, s, t:-90, s
 适用于无公网环境。在本地 PC 上启动仪表盘服务：
 
 ```bash
-python gas_dashboard_v3.py
+python gas_dashboard.py
 ```
 
 同一局域网内的设备浏览器访问该 PC 的局域网地址，即可进入操控台，操作方式与公网访问完全一致。
@@ -122,8 +146,6 @@ python gas_dashboard_v3.py
 | `s[:X]` | 定点检测（停 1s → 录制 X 秒 → 停 1s） |
 
 指令通过串口协议（11 字节二进制帧，20Hz 控制频率）下发 STM32，STM32 实时回传速度与距离实现里程计闭环修正。
-
-
 
 ---
 
