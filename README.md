@@ -77,19 +77,12 @@
 └── gas_pipeline/        # 检测库
 ```
 
-```bash
-# 启动顺序
-OPENCV_LOG_LEVEL=SILENT python3 preview.py  # 1. 相机服务
-./robot_tunnel.sh                            # 2. SSH 隧道
-python3 gas_dashboard_v3.py                  # 3. 仪表盘（或通过公网直接访问）
-```
 
 ### 服务器（Windows Server，t30.sjcmc.cn）
 
 服务器承担两项职责：
 - **SSH 隧道中继**：将机器人的仪表盘和摄像头流映射至公网端口，用户浏览器直接访问
 - **静态页面托管**：产品介绍落地页
-- 需启用 `GatewayPorts yes` + 防火墙放行对应端口
 
 ---
 
@@ -99,7 +92,7 @@ python3 gas_dashboard_v3.py                  # 3. 仪表盘（或通过公网直
 
 ### 公网访问
 
-1. 浏览器打开 `t30.sjcmc.cn`，进入产品介绍页面
+1. 浏览器打开 `http://t30.sjcmc.cn:14054/`，进入产品介绍页面
 2. 登录后进入操控台，左侧为实时摄像头画面，右侧为巡检状态面板
 3. 在路由输入框中直接输入 DSL 指令，例如：
 
@@ -130,15 +123,7 @@ python gas_dashboard_v3.py
 
 指令通过串口协议（11 字节二进制帧，20Hz 控制频率）下发 STM32，STM32 实时回传速度与距离实现里程计闭环修正。
 
-### 离线检测
 
-在不启动小车的场景下，可对已录制的热成像数据单独运行检测：
-
-```bash
-python3 main_0.py --npz record_xxx.npz --mode bg_subtract --loc 1
-python3 main_0.py --input video.mp4 --mode bg_subtract
-python3 main_0.py --input 图片目录/ --mode bg_subtract
-```
 
 ---
 
@@ -189,8 +174,8 @@ python3 main_0.py --input 图片目录/ --mode bg_subtract
 
 ```
 无 ROI 且无变化帧 ≥ 80% → normal
-检出 ROI + 高置信 leak + leak_rate ≥ 30% + leak_frames ≥ 4 → danger（语音告警）
-检出 ROI + CV/DL 结论冲突 → VLM 确认 → danger 或 warning
+检出 ROI + 高置信 leak + leak_rate ≥ 30% + leak_frames ≥ 4 → danger（语音报警）
+检出 ROI + 低置信 leak → VLM 确认 → warning（输出异常干扰原因）
 ```
 
 ### 双通道网络架构
