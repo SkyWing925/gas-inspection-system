@@ -67,7 +67,7 @@
 │   ├── outputs/               # 上报/可视化/视频写入
 │   └── utils/                 # 图像 I/O 工具
 └── model/
-    └── gas_mobilenet_v3.pth   # MobileNetV2
+    └── gas_mobilenet.pth   # MobileNetV2
 ```
 
 ### PC 端部署
