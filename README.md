@@ -84,12 +84,6 @@
     └── gas_mobilenet_v3.pth   # MobileNetV2（9 MB）
 ```
 
-启动相机服务：
-
-```bash
-OPENCV_LOG_LEVEL=SILENT OPENCV_IO_MAX_RETRIES=0 python3 preview.py
-```
-
 ### PC 端部署
 
 ```
@@ -98,9 +92,6 @@ dashboard/
 └── robot_config.example.py    # SSH 凭据模板
 ```
 
-```bash
-python gas_dashboard.py
-```
 
 ### 服务器（Windows Server，t30.sjcmc.cn）
 
