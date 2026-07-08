@@ -1,175 +1,174 @@
-# 基于 RDK X5 的智能管道巡检机器人与交互式状态反馈系统
+# Intelligent Pipeline Inspection Robot & Interactive Status Feedback System Based on RDK X5
 
-> 端-边-云协同的燃气泄漏检测系统。自主行走、AI 检测、双通道远程访问、全链路闭环。
+> An end-to-end gas leak detection system integrating edge, server, and cloud. Autonomous navigation, AI detection, dual-channel remote access, full-loop closed.
 >
-> 检测准确率 98.7% · 单帧推理 87ms · 公网零客户端操控
+> Detection accuracy 98.7% · Single-frame inference 87ms · Zero-client remote control
 
 ---
 
-## 1. 项目简介
+## 1. Overview
 
-化工园区管道气体泄漏是一大隐患。传统人工巡检效率低、存在安全风险，现有自动化方案误报率高、缺乏实时远程反馈。
+Gas leaks in chemical industrial parks are a major hazard. Traditional manual inspection is inefficient, exposes personnel to safety risks, and existing automated solutions suffer from high false-alarm rates and a lack of real-time remote feedback.
 
-本系统基于**地瓜机器人 RDK X5**，结合 Ackermann 小车底盘、热成像相机和自建服务端，实现了"自主行走、AI 检测、服务端告警、网页展示"的全链路闭环。
+This system is built on the **D-Robotics RDK X5** (8 TOPS BPU), combined with an Ackermann robot chassis, a thermal imaging camera, and a self-hosted server, delivering a complete closed-loop pipeline: *autonomous navigation → AI detection → server alert → web dashboard*.
 
-### 系统架构
+### System Architecture
 
-<img src="picture/4.png" width="800" alt="系统架构">
+<img src="picture/4.png" width="800" alt="System Architecture">
 
-### 核心特性
+### Key Features
 
-- **自定义路径巡航** — DSL 指令语言（f/t/s），里程计闭环修正，一行命令定义巡检路线
-- **三级级联 AI 检测** — CV 特征提取 → MobileNetV2 分类 → VLM 语义确认，算力按需调度，整体算力降低 60%
-- **边缘全栈部署** — Flask 仪表盘与 AI 推理共驻 RDK X5 单一节点，无需专用控制 PC
-- **双通道远程访问** — 公网 SSH 隧道直连机器人（零客户端），私网服务器存储分发（数据可靠），两通道互为备份
-- **VLM 误报抑制** — Qwen-VL-Max 二次确认，误报率从约 30% 降至个位数
+- **Custom route cruising** — DSL command language (f/t/s), odometry closed-loop correction, one line defines the full inspection route
+- **Three-stage cascaded AI detection** — CV feature extraction → MobileNetV2 classification → VLM semantic verification, on-demand compute scheduling, ~60% compute savings
+- **Edge full-stack deployment** — Flask dashboard and AI inference co-located on the RDK X5 single node, no dedicated control PC required
+- **Dual-channel remote access** — Public channel: SSH reverse tunnel directly to the robot (zero client); private channel: server storage & distribution; two channels back each other up
+- **VLM false-positive suppression** — Qwen-VL-Max second-opinion verification reduces false-alarm rate from ~30% to single digits
 
-### 性能指标
+### Performance Metrics
 
-| 指标 | 数值 |
+| Metric | Value |
 |------|------|
-| 检测准确率 | MobileNetV2 98.7% |
-| BPU 推理 | < 0.1s/帧 |
-| CV 处理 | 25fps（与相机帧率持平） |
-| 信噪比 | 四通道融合较单通道提升 3–5 倍 |
-| DL 算力 | 级联门控降低约 60% |
-| 巡检时长 | ≤ 10 分钟 |
-| 巡检覆盖 | 6 个巡检点 |
+| Detection accuracy | MobileNetV2 98.7% |
+| BPU inference | < 0.1s/frame |
+| CV throughput | 25fps (matches camera frame rate) |
+| SNR | 3–5× improvement over single-channel |
+| DL compute | ~60% reduction via cascade gating |
+| Inspection duration | ≤ 10 min |
+| Inspection coverage | 6 checkpoints |
 
 ---
 
-## 2. 硬件与部署
+## 2. Hardware & Deployment
 
-### 硬件清单
+### Hardware List
 
-| 组件 | 型号/参数 |
+| Component | Model / Specs |
 |------|----------|
-| 核心板 | 地瓜机器人 RDK X5，8 TOPS BPU，4GB RAM |
-| 底盘 | Wheeltec Ackermann，STM32F407，115200bps 串口 |
-| 热成像相机 | 640×480@25fps，YUYV，MS210x 采集 |
-| 供电 | 12V 锂电池组 + 车载 22V 电源 + ROS 转接板，分别给相机（12V）、电机驱动（22V）、STM32 和 RDK X5（5V/3A Type-C）供电 |
+| Core board | D-Robotics RDK X5, 8 TOPS BPU, 4 GB RAM |
+| Chassis | Wheeltec Ackermann, STM32F407, 115200 bps serial |
+| Thermal camera | 640×480@25fps, YUYV, MS210x capture |
+| Power | 12 V Li-Ion battery + 22 V onboard supply + ROS adapter board — camera (12 V), motor driver (22 V), STM32 & RDK X5 (5 V / 3 A Type-C) |
 
-### 板子部署（RDK X5，Ubuntu 20.04）
+### On-board Deployment (RDK X5, Ubuntu 20.04)
 
 ```
 ~/mobilenet_test/
-├── main.py                    # 一键巡检入口
-├── run.py                     # 启动脚本
-├── preview.py                 # 相机预览+录制 Web 服务
-├── preset_path_controller.py  # DSL 路径解析
-├── vlm_check.py               # VLM 语义确认
-├── iotda_test.py              # 数据上报
-├── gas_detection/             # 检测管线库
-│   ├── config/                # 配置（阈值、参数）
-│   ├── core/                  # 调度（帧源、管道、结果）
-│   ├── cv_pipeline/           # CV 四通道
-│   ├── dl_pipeline/           # DL 分类
-│   ├── outputs/               # 上报/可视化/视频写入
-│   └── utils/                 # 图像 I/O 工具
+├── main.py                    # One-click inspection entry
+├── run.py                     # Launch script
+├── preview.py                 # Camera preview + recording web service
+├── preset_path_controller.py  # DSL route parser
+├── vlm_check.py               # VLM semantic verification
+├── iotda_test.py              # Data upload
+├── gas_detection/             # Detection pipeline library
+│   ├── config/                # Configuration (thresholds, parameters)
+│   ├── core/                  # Scheduler (frame source, pipeline, result)
+│   ├── cv_pipeline/           # 4-channel CV fusion
+│   ├── dl_pipeline/           # DL classifier
+│   ├── outputs/               # Upload / visualization / video writer
+│   └── utils/                 # Image I/O utilities
 └── model/
-    └── gas_mobilenet.pth   # MobileNetV2
+    └── gas_mobilenet.pth      # MobileNetV2
 ```
 
-### PC 端部署
+### PC-side Deployment
 
 ```
 dashboard/
-├── gas_dashboard.py           # Flask 仪表盘
-└── robot_config.example.py    # SSH 凭据模板
+├── gas_dashboard.py           # Flask dashboard
+└── robot_config.example.py    # SSH credentials template
 ```
 
 ---
 
-## 3. 使用方法
+## 3. Usage
 
-系统提供两种访问方式：公网直连（推荐）和局域网访问（离线/私网场景）。
+The system provides two access modes: public internet (recommended) and LAN (offline / private-network scenarios).
 
-### 公网访问
+### Public Access
 
-1. 浏览器打开 `http://t30.sjcmc.cn:14054/`，进入产品介绍页面
+1. Open `http://t30.sjcmc.cn:14054/` in a browser to reach the product landing page
 
-<img src="picture/2.png" width="800" alt="产品页面">
+<img src="picture/2.png" width="800" alt="Landing Page">
 
-2. 登录后进入操控台，左侧为实时摄像头画面，右侧为巡检状态面板
-3. 在路由输入框中直接输入 DSL 指令，例如：
+2. Log in to enter the control console — live camera feed on the left, inspection status panel on the right
+3. Enter a DSL route command directly in the route input box, e.g.:
 
 ```
 f:0.5, s, t:-90, s
 ```
 
-4. 点击启动巡逻，小车按指令自主行驶，到达检测点自动停车录制热成像画面
-5. 检测结果实时显示在网页端——状态卡片变色（绿/橙/红），检测图片和文字结论同步刷新，泄漏时触发语音告警
+4. Click **Start Patrol** — the robot follows the route autonomously, stops at each checkpoint, and records thermal video
+5. Detection results appear on the web page in real time — status cards change color (green / orange / red), result images and text conclusions refresh, voice alert triggers on leak
 
-<img src="picture/3.png" width="800" alt="检测结果">
+<img src="picture/3.png" width="800" alt="Detection Results">
 
-### 局域网访问
+### LAN Access
 
-适用于无公网环境。在本地 PC 上启动仪表盘服务：
+For environments without public internet access. Start the dashboard service on a local PC:
 
 ```bash
 python gas_dashboard.py
 ```
 
-同一局域网内的设备浏览器访问该 PC 的局域网地址，即可进入操控台，操作方式与公网访问完全一致。
+Any device on the same LAN can open the PC's LAN address in a browser and access the control console — the experience is identical to public access.
 
-### DSL 路径指令
+### DSL Route Commands
 
-| 命令 | 含义 |
+| Command | Meaning |
 |------|------|
-| `f:X` | 前进 X 米 |
-| `t:X` | 转向 X 度（正左负右） |
-| `s:X` | 定点检测（停 1s → 录制 X 秒 → 停 1s） |
+| `f:X` | Move forward X meters |
+| `t:X` | Turn X degrees (positive = left, negative = right) |
+| `s:X` | Stop & inspect (pause 1 s → record X s → pause 1 s) |
 
-指令通过串口协议（11 字节二进制帧，20Hz 控制频率）下发 STM32，STM32 实时回传速度与距离实现里程计闭环修正。
+Commands are sent to the STM32 via a custom serial protocol (11-byte binary frames, 20 Hz control rate). The STM32 streams back speed and distance data in real time for odometry closed-loop correction.
 
 ---
 
-## 4. 技术原理
+## 4. Technical Principles
 
-### 路径巡航控制
+### Path Cruising Control
 
-用户输入 DSL 指令（如 `f:0.5, s, t:-90, s`），由 `preset_path_controller.py` 解析为动作序列，逐个编码为 11 字节二进制帧通过串口（115200bps，20Hz）下发 STM32 底盘。
-STM32 实时回传里程计数据（当前速度、累计距离），上位机对比目标值进行 PID 闭环修正，确保定位精度。到达检测点后自动停车录制。
+The user enters a DSL command (e.g. `f:0.5, s, t:-90, s`). `preset_path_controller.py` parses it into an action sequence and encodes each action as an 11-byte binary frame sent over serial (115200 bps, 20 Hz) to the STM32 chassis. The STM32 returns real-time odometry data (current speed, cumulative distance); the host compares against target values for PID closed-loop correction to ensure positioning accuracy. The robot stops automatically at each checkpoint and begins recording.
 
-### 三级级联检测架构
+### Three-Stage Cascaded Detection
 
-<img src="picture/1.png" width="800" alt="三级级联检测架构">
+<img src="picture/1.png" width="800" alt="Three-Stage Cascaded Detection">
 
-### 判定逻辑
+### Decision Logic
 
 ```
-Normal Gate（任一命中即判 normal）：
-  光流在 ROI 内追踪点 < 1.5
-  ROI 总数 < 1.2 × N
-  有 ROI 帧占比 < 15%
+Normal Gate (any hit → normal):
+  Optical flow tracked points inside ROI < 1.5
+  Total ROI count < 1.2 × N
+  Frames with ROI < 15%
 
-→ 全部不命中 → Danger Gate：
-  leak_rate ≥ 30% 且 leak_frames ≥ 4 且 DL 已运行 → danger（语音报警）
+→ All missed → Danger Gate:
+  leak_rate ≥ 30% AND leak_frames ≥ 4 AND DL executed → danger (voice alert)
 
-→ 否则 → warning（输出异常干扰原因）
+→ Otherwise → warning (report anomaly cause)
 ```
 
-### 双通道网络架构
+### Dual-Channel Network Architecture
 
-| | 公网通道 | 私网通道 |
+| | Public Channel | Private Channel |
 |------|---------|---------|
-| 路径 | SSH 反向隧道 → t30.sjcmc.cn | SFTP/HTTP → 服务器 |
-| 承载 | 仪表盘交互 + 实时视频流 | 检测数据存储 + 分发 |
-| 特点 | 大流量·低延迟·零客户端 | 小流量·持久化·可靠 |
-| 依赖 | Windows Server SSH | 自建 HTTP 服务 |
+| Path | SSH reverse tunnel → t30.sjcmc.cn | SFTP/HTTP → server |
+| Carries | Dashboard interaction + live video | Detection data storage & distribution |
+| Traits | High bandwidth, low latency, zero client | Low bandwidth, persistent, reliable |
+| Dependency | Windows Server SSH | Self-hosted HTTP service |
 
-两通道并行运行、互为备份。
+Two channels operate in parallel and back each other up.
 
-### 模型
+### Model
 
-| 项目 | 详情 |
+| Item | Detail |
 |------|------|
-| 架构 | MobileNetV2 |
-| 训练数据 | GOD-Video ~28 万张热红外灰度图 |
-| 输入 | 224×224（灰度三通道复制） |
-| 输出 | leak / normal |
-| 体积 | 9 MB（.pth）/ ~4.5 MB（BPU .bin） |
-| 推理 | RDK X5 BPU，87ms/帧 |
+| Architecture | MobileNetV2 |
+| Training data | GOD-Video ~280k thermal grayscale images |
+| Input | 224×224 (grayscale replicated to 3 channels) |
+| Output | leak / normal |
+| Size | 9 MB (.pth) / ~4.5 MB (BPU .bin) |
+| Inference | RDK X5 BPU, 87 ms/frame |
 
 ---
 
